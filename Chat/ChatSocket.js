@@ -1,7 +1,6 @@
 const socketIo = require("socket.io");
 const ChatModel = require("../models/ChatModel");
 const OdinCircledbModel = require("../models/odincircledb"); // Adjust the path as needed
-const axios = require("axios");
 const icon = "../assets/images/logoapp.png";
 
 const rooms = {};

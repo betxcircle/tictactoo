@@ -2,7 +2,6 @@ const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const multer = require("multer");
-// const cors = require('cors');
 const http = require('http');
 const path = require("path");
 const authenticateRouter = require('./Auth/authenticate'); // Import authentication routes
@@ -25,8 +24,9 @@ const cors = require('cors');
 const LOCALHOST1 = process.env.LOCALHOST1
 const LOCALHOST2 = process.env.LOCALHOST2
 
-const allowedOrigins = [`${LOCALHOST1}`, `${LOCALHOST2}`];
+const allowedOrigins = [`${LOCALHOST1}`, `${LOCALHOST2}`, `${EXPO_URL_API}`, `${EXPO_SOCKET_SOCKET}`, `${EXPO_CHATFRIENDSLIST_URL}`, `${EXPO_SEARCHLIST_URL}`, `${EXPO_SOCKET_TICTACTOE}`, `${EXPO_SOCKET_TICTACTOESTRANGER}`, `${EXPO_SOCKET_RPS}`, `${EXPO_SOCKET_RPSS}`, `${EXPO_CLOUDINARY_PRESET}`, `${EXPO_CLOUDINARY_NAME}`, `${EXPO_FLW_PUBLIC_KEY}`, `${projectId}` ];
 
+app.use(cors()); // Enable CORS
 
 app.use(
   cors({
