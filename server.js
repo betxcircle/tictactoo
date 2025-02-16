@@ -25,9 +25,9 @@ const LOCALHOST1 = process.env.LOCALHOST1
 const LOCALHOST2 = process.env.LOCALHOST2
 
 
-const allowedOrigins = [`${LOCALHOST1}`, `${LOCALHOST2}` ];
+const allowedOrigins = [`${LOCALHOST1}`, `${LOCALHOST2}`, ];
 
-app.use(cors()); // Enable CORS
+app.use(cors({ origin: "*" })); // Temporarily allow all for debugging
 
 app.use(
   cors({
@@ -35,7 +35,7 @@ app.use(
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error('Not allowed by CORS'));
+        callback(null, true); // Allow mobile apps
       }
     },
   })
