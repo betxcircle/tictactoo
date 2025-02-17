@@ -83,11 +83,11 @@ const mainServer = http.createServer(app);
 
 // Initialize socket connections for chat and friend list
 //initializeSocket(chatServer);
-initializeSocketOne(chatServer);
-FriendListIo(friendListServer);
-ListSocketIo(listSocketIo);
-SearchSocketIo(searchsocketIo);
-ChatFriendsSocketIo(chatfriendssocketIo); 
+// initializeSocketOne(chatServer);
+// FriendListIo(friendListServer);
+// ListSocketIo(listSocketIo);
+// SearchSocketIo(searchsocketIo);
+// ChatFriendsSocketIo(chatfriendssocketIo); 
 
 const PORT = process.env.PORT || 4444;
 // const CHAT_PORT =  process.env.CHAT_PORT;
