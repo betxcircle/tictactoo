@@ -89,7 +89,7 @@ ListSocketIo(listSocketIo);
 SearchSocketIo(searchsocketIo);
 ChatFriendsSocketIo(chatfriendssocketIo); 
 
-const MAIN_PORT = process.env.MAIN_PORT || 4444;
+const PORT = process.env.PORT || 4444;
 const CHAT_PORT =  process.env.CHAT_PORT;
 const FRIEND_LIST_PORT =  process.env.FRIEND_LIST_PORT;
 const LIST_PORT = process.env.LIST_PORT;
