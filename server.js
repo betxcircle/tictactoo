@@ -100,7 +100,7 @@ const PORT_ELEVEN = process.env.PORT_ELEVEN;
 const PORT_FIFTY_FIVE = process.env.PORT_FIFTY_FIVE;
 const PORT_FIVE = process.env.PORT_FIVE;
 
-console.log(MAIN_PORT, 'jdjkdj')
+console.log(PORT, 'jdjkdj')
 
 //Listen on different ports
 mainServer.listen(MAIN_PORT, () => {
