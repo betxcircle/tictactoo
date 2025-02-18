@@ -10,8 +10,8 @@ const authenticateRouter = require('./Auth/authenticate'); // Import authenticat
 //const  FriendListIo = require('./Chat/FriendList');
 // const ListSocketIo = require('./Chat/ListSocket');
 //const SearchSocketIo = require('./Chat/SearchSocke');
-const ChatFriendsSocketIo = require("./Chat/ChatFriendsSock")
-// const startSocketServer1 = require("./GameServer/server1")
+//const ChatFriendsSocketIo = require("./Chat/ChatFriendsSock")
+const startSocketServer1 = require("./GameServer/server1")
 // const startSocketServer11 = require("./GameServer/server11")
 // const startSocketServer5 = require("./GameServer/server5")
 // const startSocketServer55 = require("./GameServer/server55")
@@ -70,7 +70,7 @@ mongoose.connect(uri, {
 app.use(authenticateRouter);
 
 // Create HTTP servers
-// const server1 = http.createServer(express());
+const server1 = http.createServer(express());
 // const server11 = http.createServer(express());
 // const server5 = http.createServer(express());
 // const server55 = http.createServer(express());
@@ -79,7 +79,7 @@ app.use(authenticateRouter);
 // const friendListServer = http.createServer(app);
 // const listSocketIo = http.createServer();
 //  const searchsocketIo = http.createServer(app);
- const chatfriendssocketIo = http.createServer(app);
+//  const chatfriendssocketIo = http.createServer(app);
 
 // Initialize socket connections for chat and friend list
 //initializeSocket(chatServer);
@@ -87,7 +87,7 @@ app.use(authenticateRouter);
 // FriendListIo(friendListServer);
 // ListSocketIo(listSocketIo);
 //SearchSocketIo(searchsocketIo);
-ChatFriendsSocketIo(chatfriendssocketIo); 
+// ChatFriendsSocketIo(chatfriendssocketIo); 
 
 // const PORT = process.env.PORT || 4444;
 // const CHAT_PORT = porcess.env.CHAT_PORT || 4001;
@@ -124,19 +124,19 @@ ChatFriendsSocketIo(chatfriendssocketIo);
   
 // })
 
-chatfriendssocketIo.listen(PORT, () => {
-  console.log(`chatfff ssocket is running`);
+// chatfriendssocketIo.listen(PORT, () => {
+//   console.log(`chatfff ssocket is running`);
   
-})
+// })
 
 
-// server1.listen(PORT_ONE, () => {
+server1.listen(PORT, () => {
 
-//   startSocketServer1(server1)
-//   // Socket server is also running now
-//   console.log('Socket A server is running')
+  startSocketServer1(server1)
+  // Socket server is also running now
+  console.log('Socket A server is running')
 
-// });
+});
 
 // server11.listen(PORT_ELEVEN, () => {
 
