@@ -14,8 +14,8 @@ const authenticateRouter = require('./Auth/authenticate'); // Import authenticat
 //const ChatFriendsSocketIo = require("./Chat/ChatFriendsSock")
 //  const startSocketServer1 = require("./GameServer/server1")
 // const startSocketServer11 = require("./GameServer/server11")
- const startSocketServer5 = require("./GameServer/server5")
-// const startSocketServer55 = require("./GameServer/server55")
+//  const startSocketServer5 = require("./GameServer/server5")
+const startSocketServer55 = require("./GameServer/server55")
 
 const app = express();
 app.use(express.json());
@@ -83,8 +83,8 @@ app.use(authenticateRouter);
 // Create HTTP servers
 // const server1 = http.createServer((app));
  //const server11 = http.createServer((app));
- const server5 = http.createServer((app));
-// const server55 = http.createServer(app);
+ //const server5 = http.createServer((app));
+  const server55 = http.createServer(app);
 // const mainServer = http.createServer(app);
 // const chatServer = http.createServer(app);
 // const friendListServer = http.createServer(app);
@@ -162,19 +162,19 @@ app.use(authenticateRouter);
 
 //   });
 
-  server5.listen(PORT, () => {
+  // server5.listen(PORT, () => {
   
-    startSocketServer5(server5)
-    console.log('Socket  B server is running')
-
-  });
-  
-  // server55.listen(PORT_FIFTY_FIVE, () => {
-  
-  //   startSocketServer55(server55)
-  //   console.log('Socket BB server is running')
+  //   startSocketServer5(server5)
+  //   console.log('Socket  B server is running')
 
   // });
+  
+  server55.listen(PORT, () => {
+  
+    startSocketServer55(server55)
+    console.log('Socket BB server is running')
+
+  });
 
 
  
