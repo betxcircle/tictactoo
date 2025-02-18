@@ -5,16 +5,16 @@ const multer = require("multer");
 const http = require('http');
 const path = require("path");
 const authenticateRouter = require('./Auth/authenticate'); // Import authentication routes
-const initializeSocket = require('./Chat/ChatSocket'); // Import the initializeSocket function
-const initializeSocketOne = require('./Chat/ChatSocketOne')
-const  FriendListIo = require('./Chat/FriendList');
-const ListSocketIo = require('./Chat/ListSocket');
-const SearchSocketIo = require('./Chat/SearchSocke');
-const ChatFriendsSocketIo = require("./Chat/ChatFriendsSock")
-const startSocketServer1 = require("./GameServer/server1")
-const startSocketServer11 = require("./GameServer/server11")
-const startSocketServer5 = require("./GameServer/server5")
-const startSocketServer55 = require("./GameServer/server55")
+// const initializeSocket = require('./Chat/ChatSocket'); // Import the initializeSocket function
+// const initializeSocketOne = require('./Chat/ChatSocketOne')
+// const  FriendListIo = require('./Chat/FriendList');
+// const ListSocketIo = require('./Chat/ListSocket');
+// const SearchSocketIo = require('./Chat/SearchSocke');
+// const ChatFriendsSocketIo = require("./Chat/ChatFriendsSock")
+// const startSocketServer1 = require("./GameServer/server1")
+// const startSocketServer11 = require("./GameServer/server11")
+// const startSocketServer5 = require("./GameServer/server5")
+// const startSocketServer55 = require("./GameServer/server55")
 
 const app = express();
 app.use(express.json());
@@ -75,11 +75,11 @@ app.use(authenticateRouter);
 // const server5 = http.createServer(express());
 // const server55 = http.createServer(express());
 // const mainServer = http.createServer(app);
-// const chatServer = http.createServer();
+const chatServer = http.createServer();
 // const friendListServer = http.createServer();
 // const listSocketIo = http.createServer();
 // const searchsocketIo = http.createServer();
-const chatfriendssocketIo = http.createServer();
+// const chatfriendssocketIo = http.createServer();
 
 // Initialize socket connections for chat and friend list
 //initializeSocket(chatServer);
@@ -90,11 +90,12 @@ const chatfriendssocketIo = http.createServer();
 // ChatFriendsSocketIo(chatfriendssocketIo); 
 
 // const PORT = process.env.PORT || 4444;
-// const CHAT_PORT =  process.env.CHAT_PORT;
+// const CHAT_PORT = porcess.env.CHAT_PORT || 4001;
+ const PORT =  process.env.PORT;
 // const FRIEND_LIST_PORT =  process.env.FRIEND_LIST_PORT;
 // const LIST_PORT = process.env.LIST_PORT;
 // const SEARCH_PORT = process.env.SEARCH_PORT;
-const CHATFRIENDS_PORT = process.env.CHATFRIENDS_PORT;
+// const CHATFRIENDS_PORT = process.env.CHATFRIENDS_PORT;
 // const PORT_ONE = process.env.PORT_ONE;
 // const PORT_ELEVEN = process.env.PORT_ELEVEN;
 // const PORT_FIFTY_FIVE = process.env.PORT_FIFTY_FIVE;
@@ -105,9 +106,9 @@ const CHATFRIENDS_PORT = process.env.CHATFRIENDS_PORT;
 //   console.log(`Main server is running`);
 // });
 
-// chatServer.listen(CHAT_PORT, () => {
-//   console.log(`Chat server is running`);
-// });
+chatServer.listen(PORT, () => {
+  console.log(`Chat server is running`);
+});
 
 // friendListServer.listen(FRIEND_LIST_PORT, () => {
 //   console.log(`Friend list server is running`);
@@ -122,10 +123,10 @@ const CHATFRIENDS_PORT = process.env.CHATFRIENDS_PORT;
   
 // })
 
-chatfriendssocketIo.listen(CHATFRIENDS_PORT, () => {
-  console.log(`chatfff ssocket is running`);
+// chatfriendssocketIo.listen(CHATFRIENDS_PORT, () => {
+//   console.log(`chatfff ssocket is running`);
   
-})
+// })
 
 
 // server1.listen(PORT_ONE, () => {
