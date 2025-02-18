@@ -74,8 +74,8 @@ app.use(authenticateRouter);
 // const server11 = http.createServer(express());
 // const server5 = http.createServer(express());
 // const server55 = http.createServer(express());
-const mainServer = http.createServer(app);
-// const chatServer = http.createServer();
+// const mainServer = http.createServer(app);
+const chatServer = http.createServer();
 // const friendListServer = http.createServer();
 // const listSocketIo = http.createServer();
 // const searchsocketIo = http.createServer();
@@ -89,8 +89,8 @@ const mainServer = http.createServer(app);
 // SearchSocketIo(searchsocketIo);
 // ChatFriendsSocketIo(chatfriendssocketIo); 
 
-const PORT = process.env.PORT || 4444;
-// const CHAT_PORT =  process.env.CHAT_PORT;
+// const PORT = process.env.PORT || 4444;
+const CHAT_PORT =  process.env.CHAT_PORT;
 // const FRIEND_LIST_PORT =  process.env.FRIEND_LIST_PORT;
 // const LIST_PORT = process.env.LIST_PORT;
 // const SEARCH_PORT = process.env.SEARCH_PORT;
@@ -100,16 +100,14 @@ const PORT = process.env.PORT || 4444;
 // const PORT_FIFTY_FIVE = process.env.PORT_FIFTY_FIVE;
 // const PORT_FIVE = process.env.PORT_FIVE;
 
-console.log(PORT, 'jdjkdj')
-
 //Listen on different ports
-mainServer.listen(PORT, () => {
-  console.log(`Main server is running`);
-});
-
-// chatServer.listen(CHAT_PORT, () => {
-//   console.log(`Chat server is running`);
+// mainServer.listen(PORT, () => {
+//   console.log(`Main server is running`);
 // });
+
+chatServer.listen(CHAT_PORT, () => {
+  console.log(`Chat server is running`);
+});
 
 // friendListServer.listen(FRIEND_LIST_PORT, () => {
 //   console.log(`Friend list server is running`);
