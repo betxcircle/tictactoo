@@ -70,7 +70,7 @@ mongoose.connect(uri, {
 app.use(authenticateRouter);
 
 // Create HTTP servers
-const server1 = http.createServer(express());
+const server1 = http.createServer(express(app));
 // const server11 = http.createServer(express());
 // const server5 = http.createServer(express());
 // const server55 = http.createServer(express());
