@@ -9,8 +9,8 @@ const authenticateRouter = require('./Auth/authenticate'); // Import authenticat
 // const initializeSocketOne = require('./Chat/ChatSocketOne')
 //const  FriendListIo = require('./Chat/FriendList');
 // const ListSocketIo = require('./Chat/ListSocket');
-const SearchSocketIo = require('./Chat/SearchSocke');
-// const ChatFriendsSocketIo = require("./Chat/ChatFriendsSock")
+//const SearchSocketIo = require('./Chat/SearchSocke');
+const ChatFriendsSocketIo = require("./Chat/ChatFriendsSock")
 // const startSocketServer1 = require("./GameServer/server1")
 // const startSocketServer11 = require("./GameServer/server11")
 // const startSocketServer5 = require("./GameServer/server5")
@@ -78,16 +78,16 @@ app.use(authenticateRouter);
 // const chatServer = http.createServer(app);
 // const friendListServer = http.createServer(app);
 // const listSocketIo = http.createServer();
- const searchsocketIo = http.createServer(app);
-// const chatfriendssocketIo = http.createServer();
+//  const searchsocketIo = http.createServer(app);
+ const chatfriendssocketIo = http.createServer(app);
 
 // Initialize socket connections for chat and friend list
 //initializeSocket(chatServer);
 // initializeSocketOne(chatServer);
 // FriendListIo(friendListServer);
 // ListSocketIo(listSocketIo);
-SearchSocketIo(searchsocketIo);
-// ChatFriendsSocketIo(chatfriendssocketIo); 
+//SearchSocketIo(searchsocketIo);
+ChatFriendsSocketIo(chatfriendssocketIo); 
 
 // const PORT = process.env.PORT || 4444;
 // const CHAT_PORT = porcess.env.CHAT_PORT || 4001;
@@ -119,15 +119,15 @@ SearchSocketIo(searchsocketIo);
 //   console.log(`chatfriend list server is running`);
 // });
 
-searchsocketIo.listen(PORT, () => {
-  console.log(`SEARChlist server is running`);
-  
-})
-
-// chatfriendssocketIo.listen(CHATFRIENDS_PORT, () => {
-//   console.log(`chatfff ssocket is running`);
+// searchsocketIo.listen(PORT, () => {
+//   console.log(`SEARChlist server is running`);
   
 // })
+
+chatfriendssocketIo.listen(PORT, () => {
+  console.log(`chatfff ssocket is running`);
+  
+})
 
 
 // server1.listen(PORT_ONE, () => {
