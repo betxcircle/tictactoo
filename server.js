@@ -11,8 +11,8 @@ const authenticateRouter = require('./Auth/authenticate'); // Import authenticat
 // const ListSocketIo = require('./Chat/ListSocket');
 //const SearchSocketIo = require('./Chat/SearchSocke');
 //const ChatFriendsSocketIo = require("./Chat/ChatFriendsSock")
-const startSocketServer1 = require("./GameServer/server1")
-// const startSocketServer11 = require("./GameServer/server11")
+// const startSocketServer1 = require("./GameServer/server1")
+const startSocketServer11 = require("./GameServer/server11")
 // const startSocketServer5 = require("./GameServer/server5")
 // const startSocketServer55 = require("./GameServer/server55")
 
@@ -70,8 +70,8 @@ mongoose.connect(uri, {
 app.use(authenticateRouter);
 
 // Create HTTP servers
-const server1 = http.createServer(express(app));
-// const server11 = http.createServer(express());
+// const server1 = http.createServer(express(app));
+ const server11 = http.createServer(express(app));
 // const server5 = http.createServer(express());
 // const server55 = http.createServer(express());
 // const mainServer = http.createServer(app);
@@ -130,20 +130,20 @@ const server1 = http.createServer(express(app));
 // })
 
 
-server1.listen(PORT, () => {
+// server1.listen(PORT, () => {
 
-  startSocketServer1(server1)
-  // Socket server is also running now
-  console.log('Socket A server is running')
+//   startSocketServer1(server1)
+//   // Socket server is also running now
+//   console.log('Socket A server is running')
 
-});
+// });
 
-// server11.listen(PORT_ELEVEN, () => {
+server11.listen(PORT, () => {
 
-//     startSocketServer11(server11)
-//     console.log('Socket AA server is running')
+    startSocketServer11(server11)
+    console.log('Socket AA server is running')
 
-//   });
+  });
 
   // server5.listen(PORT_FIVE, () => {
   
