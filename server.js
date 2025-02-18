@@ -75,7 +75,7 @@ app.use(authenticateRouter);
 // const server5 = http.createServer(express());
 // const server55 = http.createServer(express());
 // const mainServer = http.createServer(app);
-const chatServer = http.createServer();
+const chatServer = http.createServer(app);
 // const friendListServer = http.createServer();
 // const listSocketIo = http.createServer();
 // const searchsocketIo = http.createServer();
