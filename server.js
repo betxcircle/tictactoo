@@ -7,9 +7,9 @@ const path = require("path");
 const authenticateRouter = require('./Auth/authenticate'); // Import authentication routes
 // const initializeSocket = require('./Chat/ChatSocket'); // Import the initializeSocket function
 // const initializeSocketOne = require('./Chat/ChatSocketOne')
-const  FriendListIo = require('./Chat/FriendList');
+//const  FriendListIo = require('./Chat/FriendList');
 // const ListSocketIo = require('./Chat/ListSocket');
-// const SearchSocketIo = require('./Chat/SearchSocke');
+const SearchSocketIo = require('./Chat/SearchSocke');
 // const ChatFriendsSocketIo = require("./Chat/ChatFriendsSock")
 // const startSocketServer1 = require("./GameServer/server1")
 // const startSocketServer11 = require("./GameServer/server11")
@@ -76,17 +76,17 @@ app.use(authenticateRouter);
 // const server55 = http.createServer(express());
 // const mainServer = http.createServer(app);
 // const chatServer = http.createServer(app);
-const friendListServer = http.createServer(app);
+// const friendListServer = http.createServer(app);
 // const listSocketIo = http.createServer();
-// const searchsocketIo = http.createServer();
+ const searchsocketIo = http.createServer(app);
 // const chatfriendssocketIo = http.createServer();
 
 // Initialize socket connections for chat and friend list
 //initializeSocket(chatServer);
 // initializeSocketOne(chatServer);
-FriendListIo(friendListServer);
+// FriendListIo(friendListServer);
 // ListSocketIo(listSocketIo);
-// SearchSocketIo(searchsocketIo);
+SearchSocketIo(searchsocketIo);
 // ChatFriendsSocketIo(chatfriendssocketIo); 
 
 // const PORT = process.env.PORT || 4444;
@@ -111,18 +111,18 @@ FriendListIo(friendListServer);
 //   console.log(`Chat server is running`);
 // });
 
-friendListServer.listen(PORT, () => {
-  console.log(`Friend list server is running`);
-});
+// friendListServer.listen(PORT, () => {
+//   console.log(`Friend list server is running`);
+// });
 
 // listSocketIo.listen(LIST_PORT, () => {
 //   console.log(`chatfriend list server is running`);
 // });
 
-// searchsocketIo.listen(SEARCH_PORT, () => {
-//   console.log(`SEARChlist server is running`);
+searchsocketIo.listen(PORT, () => {
+  console.log(`SEARChlist server is running`);
   
-// })
+})
 
 // chatfriendssocketIo.listen(CHATFRIENDS_PORT, () => {
 //   console.log(`chatfff ssocket is running`);
