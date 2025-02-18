@@ -1,9 +1,6 @@
 
 const socketIo = require('socket.io');
 const { Expo } = require('expo-server-sdk'); // Add Expo SDK for push notifications
-// Inside your component where socket is initialized
-//const { BalanceProvider, BalanceContext } = require('../../notify/lib/Context/BalanceContext'); // Adjust the path as necessary
-// const { updateUnreadMessages } = BalanceContext();
 
 const expo = new Expo(); // Create a new Expo SDK client
 const ChatModel = require("../models/ChatModel");
@@ -30,7 +27,7 @@ const initializeSocketOne = (server) => {
     socket.on('joinRoom', ({ roomId, userId}) => {
         // Join the room
         socket.join(roomId);
-        // console.log(`User ${userId} joined room ${roomId} with socket ID: ${socket.id}`);
+        console.log(`User ${userId} joined room ${roomId} with socket ID: ${socket.id}`);
 
         // Store user IDs in the room
         if (!rooms[roomId]) {
