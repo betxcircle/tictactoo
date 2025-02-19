@@ -6,16 +6,16 @@ const socketIo = require('socket.io');
 const http = require('http');
 const path = require("path");
 const authenticateRouter = require('./Auth/authenticate'); // Import authentication routes
-const initializeSocket = require('./Chat/ChatSocket'); // Import the initializeSocket function
-const initializeSocketOne = require('./Chat/ChatSocketOne')
-const  FriendListIo = require('./Chat/FriendList');
-const ListSocketIo = require('./Chat/ListSocket');
-const SearchSocketIo = require('./Chat/SearchSocke');
-const ChatFriendsSocketIo = require("./Chat/ChatFriendsSock")
+// const initializeSocket = require('./Chat/ChatSocket'); // Import the initializeSocket function
+// const initializeSocketOne = require('./Chat/ChatSocketOne')
+// const  FriendListIo = require('./Chat/FriendList');
+// const ListSocketIo = require('./Chat/ListSocket');
+// const SearchSocketIo = require('./Chat/SearchSocke');
+// const ChatFriendsSocketIo = require("./Chat/ChatFriendsSock")
 //  const startSocketServer1 = require("./GameServer/server1")
 // const startSocketServer11 = require("./GameServer/server11")
 //  const startSocketServer5 = require("./GameServer/server5")
-const startSocketServer55 = require("./GameServer/server55")
+// const startSocketServer55 = require("./GameServer/server55")
 
 const app = express();
 app.use(express.json());
@@ -85,16 +85,16 @@ app.use(authenticateRouter);
  //const server11 = http.createServer((app));
  //const server5 = http.createServer((app));
   // const server55 = http.createServer(app);
-// const mainServer = http.createServer(app);
-const chatServer = http.createServer(app);
-const friendListServer = http.createServer(app);
-const listSocketIo = http.createServer();
- const searchsocketIo = http.createServer(app);
+const mainServer = http.createServer(app);
+// const chatServer = http.createServer(app);
+// const friendListServer = http.createServer(app);
+// const listSocketIo = http.createServer();
+//  const searchsocketIo = http.createServer(app);
 //*  const chatfriendssocketIo = http.createServer(app);
 
 // Initialize socket connections for chat and friend list
 //initializeSocket(chatServer);
-initializeSocketOne(chatServer);
+// initializeSocketOne(chatServer);
 // FriendListIo(friendListServer);
 // ListSocketIo(listSocketIo);
 //SearchSocketIo(searchsocketIo);
@@ -103,40 +103,40 @@ initializeSocketOne(chatServer);
 // const PORT = process.env.PORT || 4444;
 // const CHAT_PORT = porcess.env.CHAT_PORT || 4001;
 
-const FRIEND_PORT_LIST =  process.env.FRIEND_PORT_LIST;
+// const FRIEND_PORT_LIST =  process.env.FRIEND_PORT_LIST;
 const PORT =  process.env.PORT;
-const LIST_PORT = process.env.LIST_PORT;
-const CHAT_PORT = process.env.CHAT_PORT
-const SEARCH_PORT = process.env.SEARCH_PORT;
-const CHATFRIENDS_PORT = process.env.CHATFRIENDS_PORT;
+// const LIST_PORT = process.env.LIST_PORT;
+// const CHAT_PORT = process.env.CHAT_PORT
+// const SEARCH_PORT = process.env.SEARCH_PORT;
+// const CHATFRIENDS_PORT = process.env.CHATFRIENDS_PORT;
 // const PORT_ONE = process.env.PORT_ONE;
 // const PORT_ELEVEN = process.env.PORT_ELEVEN;
 // const PORT_FIFTY_FIVE = process.env.PORT_FIFTY_FIVE;
 // const PORT_FIVE = process.env.PORT_FIVE;
 
 //Listen on different ports
-// mainServer.listen(PORT, () => {
-//   console.log(`Main server is running`);
+mainServer.listen(PORT, () => {
+  console.log(`Main server is running`);
+});
+
+
+// chatServer.listen(PORT, () => {
+//   console.log(`main chat socket one server is running`);
 // });
 
 
-chatServer.listen(PORT, () => {
-  console.log(`main chat socket one server is running`);
-});
+// friendListServer.listen(FRIEND_PORT_LIST, () => {
+//   console.log(`Friend port  list server is running`);
+// });
 
+// listSocketIo.listen(LIST_PORT, () => {
+//   console.log(`listport list server is running`);
+// });
 
-friendListServer.listen(FRIEND_PORT_LIST, () => {
-  console.log(`Friend port  list server is running`);
-});
-
-listSocketIo.listen(LIST_PORT, () => {
-  console.log(`listport list server is running`);
-});
-
-searchsocketIo.listen(SEARCH_PORT, () => {
-  console.log(`SEARCh server is running`);
+// searchsocketIo.listen(SEARCH_PORT, () => {
+//   console.log(`SEARCh server is running`);
   
-})
+// })
 
 // chatfriendssocketIo.listen(CHAT_PORT, () => {
 //   console.log(`chatfff ssocket is running`);
