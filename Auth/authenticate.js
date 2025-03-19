@@ -17,13 +17,13 @@ const TictactoeModel = require("../models/BetCashModel");
 const DeleteRequestModel = require('../models/DeleteRequestModel');
 const ReferralModel = require('../models/ReferralModel');
 const { v4: uuidv4 } = require('uuid'); // To generate unique referral codes
-const jwtSecret = process.env.JWT_SECRET;
+const jwtSecret = process.env.JWT_SECRET || 'c19b1e3b784f21e5c5e2b6f23d8f19a3dfd1b7e8a6c2d9e7f4b3a5d6c8e1f2a4';
 // Parse the EMAIL_USER AND EMAIL_PASS environment variable
 const FLW_SECRET_KEY = process.env.FLW_SECRET_KEY;
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 require("dotenv").config();
-
+const { body, validationResult } = require('express-validator');
 const multer = require('multer');
 const Device = require('../models/Device');
 const UserFriendsModel = require('../models/UserFriendsModel');
@@ -42,6 +42,8 @@ const { Expo } = require('expo-server-sdk');
 const BatchModel = require('../models/BatchModel');
 const FaceOffModel = require('../models/FaceOffModel');
 const FaceOffAnswer = require('../models/FaceOffAnswerModel');
+const authenticateToken = require('../Auth/middleware');
+
 const expo = new Expo();
 
 const { ObjectId } = require('mongoose').Types;
@@ -75,8 +77,14 @@ const registrationLimiter = rateLimit({
   message: 'Too many registration attempts from this IP, please try again after 5 minutes',
 });
 
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 requests per window
+  message: 'Too many login attempts, please try again later',
+});
 
-router.post('/login', async (req, res) => {
+
+router.post('/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   try {
@@ -100,6 +108,48 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ status: 'error', message: 'Internal server error' });
   }
 });
+
+
+
+// router.post('/login', 
+//   loginLimiter,
+//   body('email').isEmail(),
+//   body('password').isLength({ min: 8 }),
+//   async (req, res) => {
+//     const errors = validationResult(req);
+//     if (!errors.isEmpty()) {
+//       return res.status(400).json({ errors: errors.array() });
+//     }
+
+//     const { email, password } = req.body;
+
+//     try {
+//       const user = await OdinCircledbModel.findOne({ email });
+
+//       if (!user) {
+//         return res.status(401).json({ status: 'error', message: 'Invalid email or password' });
+//       }
+
+//       const isMatch = await bcrypt.compare(password, user.password);
+
+//       if (!isMatch) {
+//         return res.status(401).json({ status: 'error', message: 'Invalid email or password' });
+//       }
+
+//       // Generate JWT token
+//       const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '1h' });
+
+//       // Remove password from response
+//       const { password: _, ...safeUser } = user._doc;
+
+//       res.status(200).json({ status: 'success', token, user: safeUser });
+
+//     } catch (error) {
+//       console.error('Error during login:', error);
+//       res.status(500).json({ status: 'error', message: 'Internal server error' });
+//     }
+//   }
+// );
 
 
 router.post('/register',upload.single('image'), registrationLimiter, async (req, res) => {
@@ -241,25 +291,24 @@ if (referredBy) {
       from: 'odincirclex@gmail.com',
       to: newUser.email,
       subject: 'Confirm your Identity',
-      text: 'hello'
-    //   html: `
-    //   <div style="font-family: Arial, sans-serif; color: #333; background-color: #fff; padding: 20px;">
-    //     <img src="cid:logo" alt="Logo" style="width: 100px; height: 100px; border-radius: 50%; margin-bottom: 20px;" />
-    //     <p style="color: #000; margin-bottom: 10px; font-size: 16px">Hello ${newUser.fullName},</p>
-    //     <h2 style="color: #000; margin-bottom: 10px; font-size: 24px">Confirm Your Identity</h2>
-    //     <p style="font-size: 16px; margin-bottom: 20px;">Thank you for signing up to Odincircle. Here's your One Time Password to verify your account.</p>
-    //     <h3 style="font-size: 24px; color: #000; margin-bottom: 10px; background-color: aliceblue; padding: 20px 0; text-align: center";>${otp}</h3>
-    //     <p style="font-size: 16px; margin-bottom: 20px;">If you have any complaint please contact our support team immediately via in-app or email.</p>
-    //     <p style="font-size: 16px; margin-bottom: 20px;">support@odincirclegames.co</p>
-    //     <p style="font-size: 16px;">Please use this OTP to complete your registration process.</p>
-    //   </div>`, // HTML content with inline CSS styles
-    // attachments: [
-    //   {
-    //     filename: 'odincircle.png', // Name of the image file
-    //     path: '../../odincircle.png', // Path to the image file
-    //     cid: 'logo', // Unique ID for referencing the image in the HTML content
-    //   },
-    // ],
+      html: `
+      <div style="font-family: Arial, sans-serif; color: #333; background-color: #fff; padding: 20px;">
+        <img src="cid:logo" alt="Logo" style="width: 100px; height: 100px; border-radius: 50%; margin-bottom: 20px;" />
+        <p style="color: #000; margin-bottom: 10px; font-size: 16px">Hello ${newUser.fullName},</p>
+        <h2 style="color: #000; margin-bottom: 10px; font-size: 24px">Confirm Your Identity</h2>
+        <p style="font-size: 16px; margin-bottom: 20px;">Thank you for signing up to Odincircle. Here's your One Time Password to verify your account.</p>
+        <h3 style="font-size: 24px; color: #000; margin-bottom: 10px; background-color: aliceblue; padding: 20px 0; text-align: center";>${otp}</h3>
+        <p style="font-size: 16px; margin-bottom: 20px;">If you have any complaint please contact our support team immediately via in-app or email.</p>
+        <p style="font-size: 16px; margin-bottom: 20px;">support@odincirclegames.co</p>
+        <p style="font-size: 16px;">Please use this OTP to complete your registration process.</p>
+      </div>`, // HTML content with inline CSS styles
+    attachments: [
+      {
+        filename: 'odincircle.png', // Name of the image file
+        path: '../../odincircle.png', // Path to the image file
+        cid: 'logo', // Unique ID for referencing the image in the HTML content
+      },
+    ],
   };
   
 
@@ -343,9 +392,7 @@ async function sendOTPByEmail(newUser, otp) {
         </div>`, // HTML content with inline CSS styles
       attachments: [
         {
-          filename: 'odincircle.png', // Name of the image file
-          path: '../../odincircle.png', // Path to the image file
-          cid: 'logo', // Unique ID for referencing the image in the HTML content
+      
         },
       ],
     };
@@ -1038,7 +1085,7 @@ router.post('/send-otptransaction', async (req, res) => {
 
 
 router.post('/verify-otpwithdraw', async (req, res) => {
-  const { userId, password, otp, totalAmount, amount, title, message, fullName } = req.body;
+  const { userId, otp, totalAmount, amount, title, message, fullName } = req.body;
 
   try {
     // Retrieve the OTP from the database
@@ -1053,11 +1100,6 @@ router.post('/verify-otpwithdraw', async (req, res) => {
       return res.status(400).send('User not found');
     }
 
-    // Check if the password is correct
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(400).send('Invalid password');
-    }
 
     // Validate the withdrawal amount
     const withdrawalAmount = parseFloat(totalAmount);

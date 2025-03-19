@@ -50,7 +50,7 @@ const OdinCircleSchema = new Schema({
     email: String,
     phone: String,
     password: String,
-    verified: Boolean,
+    verified: { type: Boolean, default: false },
     withdrawConfirmed: { type: Boolean, default: false },
     expireAt: { type: Date, expires: 0 }, // TTL index
     image: String,

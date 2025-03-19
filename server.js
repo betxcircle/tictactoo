@@ -5,8 +5,8 @@ const { Server } = require("socket.io");
 const socketIO = require('socket.io');
 const OdinCircledbModel = require('./models/odincircledb');
 const WinnerModel = require('./models/WinnerModel');
-const BetModelRock = require('./models/BetModelRock');
-const BetCashModel = require('./models/BetCashModel');
+// const BetModelRock = require('./models/BetModelRock');
+// const BetCashModel = require('./models/BetCashModel');
 const Device = require('./models/Device');
 const mongoose = require('mongoose');
 
@@ -37,7 +37,7 @@ mongoose.connect(uri, {
     .catch(err => console.error("MongoDB connection error:", err));
 
     
-const SearchSocketIo = (server) => {
+const TictacThreeSocketIo = (server) => {
   const io = new Server(server, {
     cors: {
       origin: "*", // Replace with your frontend's URL if needed
@@ -50,144 +50,101 @@ const SearchSocketIo = (server) => {
   io.on('connection', (socket) => {
     console.log('A user connectedssss:', socket.id);
   
-    
-    socket.on('joinRoom', async (data) => {
-      const { roomId, playerName, userId, totalBet, expoPushToken } = data;
-    
-      // Log the received data
-      console.log('Received joinRoom event with data:', data);
-    
-      // Validate required fields
-      if (!roomId || !playerName || !userId) {
-        console.error('Missing roomId, playerName, or userId:', { roomId, playerName, userId });
-        socket.emit('error', 'Missing roomId, playerName, or userId');
-        return;
+    socket.on('joinRoom', async ({ playerName, roomId, userId, totalBet, expoPushToken }) => {
+      // Validate input
+      if (!playerName || !userId || !roomId || !totalBet) {
+        return socket.emit('invalidJoin', 'Player name, userId, roomId, and bet amount are required');
       }
-    
-      // Initialize the room if it doesn't exist
-      if (!rooms[roomId]) {
-        rooms[roomId] = {
+  
+      // Check if the room exists
+      let room = activeRooms[roomId];
+  
+      if (!room) {
+        // Create a new room with the bet amount if it doesn't exist
+        room = {
+          roomId,
           players: [],
-          choices: {},
-          round: 1,
-          scores: {},
+          board: Array(9).fill(null),
+          currentPlayer: 0,
+          startingPlayer: 0, // Track who starts
+          totalBet, // Set bet for this room
         };
-        console.log(`Created room ${roomId} with initial data`, rooms[roomId]);
+        activeRooms[roomId] = room;
       }
-    
-      const room = rooms[roomId];
-    
-      // Add the new player to the room
-      // const playerId = socket.id;
-      //   const playerNumber = room.players.length + 1;
-      //   const playerData = {
-      //   id: playerId,
-      //    name: playerName,
-      //    playerNumber,
-      //   };
-      // Check if the room is full
-      if (room.players.length >= 2) {
-        console.log(`Room ${roomId} is full. Player ${playerName} cannot join.`);
-        socket.emit('message', 'Room is full');
-        return;
+  
+      // Enforce bet consistency - ensure all players in the room have the same bet amount
+      if (room.players.length > 0 && room.totalBet !== totalBet) {
+        return socket.emit('invalidBet', 'Bet amount must match the room');
       }
-    
-      // Assign the player number dynamically based on the number of players in the room
+  
+      // Prevent more than 3 players from joining the same room
+      if (room.players.length >= 3) {
+        return socket.emit('roomFull', 'This room already has three players');
+      }
+  
+      // Determine player number and symbol (X, O, or A for 3 players)
+      const symbols = ['X', 'O', 'A']; 
       const playerNumber = room.players.length + 1;
-      const playerData = { id: socket.id, name: playerName, userId, playerNumber, totalBet };
-      room.players.push(playerData);
-    
-      // Initialize player's score
-      room.scores[socket.id] = 0;
-    
-      // Join the socket to the room
+      const playerSymbol = symbols[playerNumber - 1];
+  
+      // Add the player to the room
+      room.players.push({
+        name: playerName,
+        userId,
+        socketId: socket.id,
+        totalBet,
+        playerNumber,
+        symbol: playerSymbol,
+        expoPushToken,
+      });
+  
+      // Join the socket.io room
       socket.join(roomId);
-      console.log(`Player ${playerName} (userId: ${userId}) joined room ${roomId} as Player ${playerNumber}`);
-    
-       // Notify the specific player of their details
-      socket.emit('playerJoined', {
-      playerNumber,
-      playerName,
-      roomId,
-      totalBet: totalBet,
-      round: room.round,
-      expoPushToken,
-     });
-
-    //  io.to(roomId).emit('playerInfo', {
-    //   roomId,
-    //   players: room.players.map((player) => ({
-    //     id: player.id,
-    //     playerName: player.name,
-    //     playerNumber: player.playerNumber,
-    //   })),
-    //   totalBet: totalBet,
-    // });
-    
-    io.to(roomId).emit('playerInfo', {
-      roomId,
-      player1Name: room.players[0]?.name || null, // Assign player1Name based on the first player
-      player2Name: room.players[1]?.name || null, // Assign player2Name based on the second player
-      players: room.players.map((player, index) => ({
-        id: player.id,
-        playerName: player.name,
-        // playerNumber: index + 1,
-        playerNumber: player.playerNumber, // Assign player numbers based on their position
-      })),
-      totalBet: room.totalBet,
-    });
-    
-      // Notify all clients in the room about the new player
-      // io.to(roomId).emit('playerInfo', {
-      //   roomId,
-      //   players: room.players, 
-      //   totalBet: room.totalBet,
-      //   playerNumber: room.playerNumber,
-      // });
-    
-      // Welcome message for the player
-      socket.emit('message', `Welcome to the game, ${playerName}!`);
-      io.to(roomId).emit('message', `Player ${playerNumber} (${playerName}) has joined the room.`);
-    
-      // Check if both players have joined
-      if (room.players.length === 2) {
-        console.log(`Both players have joined room ${roomId}`, room.players);
-        io.to(roomId).emit('bothPlayersJoined', {
-          message: 'Both players have joined the room.',
-          roomData: room,
+  
+      // Notify other players in the room about the new player
+      socket.to(roomId).emit('playerJoined', `${playerName} joined the room`);
+  
+      // Send individual player information to the player who joined
+      socket.emit('playerInfo', {
+        playerNumber: playerNumber,
+        symbol: playerSymbol,
+        playerName: playerName,
+        roomId: room.roomId,
+        userId: userId
+      });
+  
+      // Emit the updated player list to everyone in the room
+      io.to(roomId).emit('playersUpdate', room.players);
+  
+      // Check if the room has at least 2 players to start the game
+      if (room.players.length === 2 || room.players.length === 3) {
+        io.to(roomId).emit('gameReady', {
+          players: room.players.map(p => ({ name: p.name, symbol: p.symbol })),
+          roomId,
         });
+  
+        room.currentPlayer = room.startingPlayer;
+  
+        // Notify players about whose turn it is
+        io.to(roomId).emit('turnChange', room.currentPlayer);
+        
+        // Send push notification to all players in the room
+        for (const player of room.players) {
+          const recipient = await OdinCircledbModel.findById(player.userId); 
+  
+          if (recipient && recipient.expoPushToken) {
+            await sendPushNotification(
+              recipient.expoPushToken,
+              'Game Ready!',
+              'The game is ready to start!',
+              { roomId }
+            );
+          }
+        }
       }
-
-      const firstPlayer = room.players[0]; // Retrieve the first player's info
-      console.log('First Player Info:', firstPlayer);
-  
-      // Fetch first player's push token from the database
-      const recipient = await OdinCircledbModel.findById(firstPlayer.userId); // Assuming `userId` matches DB _id
-      console.log('Fetched recipient from DB:', recipient);
+  });
   
 
-    if (recipient && recipient.expoPushToken) {
-    console.log(`Preparing to send push notification to: ${recipient.expoPushToken}`);
-
-    // Notification details
-    const notificationTitle = 'Game Ready!';
-    const notificationBody = `${playerName} has joined. The game is ready to start!`;
-    const notificationData = { roomId, playerName };
-
-    // Send the push notification
-    await sendPushNotification(
-      recipient.expoPushToken,
-      notificationTitle,
-      notificationBody,
-      notificationData
-    );
-
-    console.log('Push notification sent successfully to the first player.');
-  } else {
-    console.log('No valid Expo push token found for the first player.');
-  }
-    
-    });
 
 // Listen for incoming chat messages from clients
 
@@ -235,355 +192,8 @@ async function sendPushNotification(expoPushToken, title, body, data = {}) {
   }
 }
 
-   // Add this inside the io.on('connection', ...) block
-   socket.on('chatText', ({ roomId, playerName, text }) => {
-    // Log the data being received
-    console.log(`Received chat message from ${playerName} in room ${roomId}: ${text}`);
+ 
 
-    // Broadcast the chat text to all clients in the room
-    io.to(roomId).emit('receiveText', { playerName, text });
-  });
-
-
-socket.on('choice', async (data) => {
-  console.log("Incoming choice data:", data);
-  const { roomId, choice, playerName } = data;
-  const roomID = roomId.roomId || roomId;  // Correctly handle roomId
-  
-  if (!rooms[roomID]) {
-    console.log(`Room ${roomID} does not exist`);
-    return;
-  }
-  
-  console.log(`Received choice from ${playerName} in room ${roomID}:`, choice);
-  
-  if (rooms[roomID]) {
-    const playerInRoom = rooms[roomID].players.find(player => player.id === socket.id);
-    if (playerInRoom) {
-      rooms[roomID].choices[socket.id] = choice;  // Store the choice
-      
-      // Emit back to player for confirmation
-      socket.emit('playersChoice', { playerName, choice });
-      
-      // Check if both players have made their choices
-      if (Object.keys(rooms[roomID].choices).length === 1) {
-        // Notify the first player that they're waiting for the second player's choice
-        socket.emit('waitingForOpponent');
-        
-        // Notify the second player that the first player has made their choice
-        const otherPlayer = rooms[roomID].players.find(player => player.id !== socket.id);
-        io.to(otherPlayer.id).emit('waitingForOpponent');
-      }
-      
-      if (Object.keys(rooms[roomID].choices).length === 2) {
-        console.log(`Both players have made their choices in room ${roomID}. Processing the round...`);
-        
-        // Process the round as usual
-        const roundWinner = determineRoundWinner(roomID);
-        if (roundWinner) {
-          rooms[roomID].scores[roundWinner] = (rooms[roomID].scores[roundWinner] || 0) + 1;
-        }
-        
-        // Increment round number
-        rooms[roomID].round = (rooms[roomID].round || 1) + 1;
-        
-        // Emit the updated scores
-        io.to(roomID).emit('scoreUpdate', {
-          scores: rooms[roomID].scores,
-          round: rooms[roomID].round,
-        });
-
-        // Check if the game has reached the maximum number of rounds
-        if (rooms[roomID].round > MAX_ROUNDS) {
-          // Determine overall winner after all rounds
-          const overallWinnerMessage = determineOverallWinner(roomID);
-          
-          if (overallWinnerMessage.includes("tie")) {
-            console.log(`Game tie in room ${roomID}. Resetting for another round.`);
-            io.to(roomID).emit('tieGame', { roomID, message: overallWinnerMessage });
-
-            // Reset game data, but not the room itself
-            resetGame(roomID);
-          } else {
-            console.log(`Game over in room ${roomID}`);
-            io.to(roomID).emit('gameOver', { roomID, scores: rooms[roomID].scores, overallWinner: overallWinnerMessage });
-
-            // After determining the winner, update the winner's balance
-            const winnerUserId = overallWinnerMessage.includes('Player 1') ? rooms[roomID].players[0].userId : rooms[roomID].players[1].userId;
-            const totalBet = rooms[roomID].totalBet || 0;
-
-            try {
-              if (!winnerUserId) {
-                console.log('Invalid winner user ID:', winnerUserId);
-                return;
-              }
-
-              const winnerUser = await OdinCircledbModel.findById(winnerUserId);
-              if (winnerUser) {
-                winnerUser.wallet.cashoutbalance += totalBet;
-                await winnerUser.save();
-                console.log(`${winnerUser.name}'s balance updated`);
-
-                // Save the winner information in the WinnerModel
-                const newWinner = new WinnerModel({
-                  roomId: roomID,
-                  winnerName: winnerUser._id,
-                  totalBet: totalBet,
-                });
-                await newWinner.save();
-                console.log('Winner saved to database:', newWinner);
-              } else {
-                console.log('Winner user not found');
-              }
-            } catch (error) {
-              console.error('Error updating winner balance or saving to database:', error.message);
-            }
-
-            // Clear room data if no longer needed
-            delete rooms[roomID];
-          }
-        } else {
-          // Reset choices for the next round
-          rooms[roomID].choices = {};
-          io.to(roomID).emit('nextRound', { round: rooms[roomID].round });
-        }
-      }
-    } else {
-      console.error(`Player with socket ID ${socket.id} is not in room ${roomID}`);
-    }
-  } else {
-    console.error(`Players array is undefined for room ${roomID}`);
-  }
-});
-
-
-socket.on('placeBet', async ({ roomId, userId, playerNumber, betAmount }) => {
-  console.log(`Room ${roomId} - Player ${playerNumber} bets: ${betAmount}`);
-
-  // Initialize room if it doesn't exist
-  rooms[roomId] = rooms[roomId] || {};
-
-  if (!playerNumber) {
-      socket.emit('betError', { message: 'Player number is required to place a bet.' });
-      return;
-  }
-
-  // Assign bet and user ID based on player number
-  if (playerNumber === 1) {
-      rooms[roomId].player1Bet = betAmount;
-      rooms[roomId].player1UserId = userId;
-
-      // Save the first player's bet to BetRockModel
-      try {
-          const newBetRock = new BetModelRock({
-              roomId,
-              playerName: userId,
-              betAmount,
-          });
-          await newBetRock.save();
-          console.log('Player 1 bet saved to BetRockModel:', newBetRock);
-
-          const maskedName = maskPlayerName(userId);
-     
-        const notificationTitle = 'New Bet Placed!';
-        const notificationMessage = `Player ${maskedName} has placed a bet of ${betAmount} Naira`;
-        await sendNotificationsToDevices(notificationTitle, notificationMessage);
-
-      } catch (error) {
-          console.error('Error saving Player 1 bet to BetRockModel:', error.message);
-          socket.emit('betError', { message: 'Error saving Player 1 bet. Please try again.' });
-          return;
-      }
-  } else if (playerNumber === 2) {
-      rooms[roomId].player2Bet = betAmount;
-      rooms[roomId].player2UserId = userId;
-  }
-
-  // Save both players' bets to BetCashModel
-  try {
-      const newBetCash = new BetCashModel({
-          roomId,
-          playerName: userId,
-          betAmount,
-      });
-      await newBetCash.save();
-      console.log('Both players\' bets saved to BetCashModel:', newBetCash);
-  } catch (error) {
-      console.error('Error saving bets to BetCashModel:', error.message);
-      socket.emit('betError', { message: 'Error saving bets to BetCashModel. Please try again.' });
-      return;
-  }
-
-  // Emit updated bet info
-  const { player1Bet, player2Bet } = rooms[roomId];
-  io.to(roomId).emit('betUpdated', {
-      playerNumber,
-      betAmount,
-      player1Bet: player1Bet || 0,
-      player2Bet: player2Bet || 0,
-  });
-
-  // If both players have placed their bets
-  if (player1Bet > 0 && player2Bet > 0) {
-      const totalBet = player1Bet + player2Bet;
-      rooms[roomId].totalBet = totalBet;
-
-      if (player1Bet === player2Bet) {
-          io.to(roomId).emit('equalBet', { player1Bet, player2Bet, totalBet });
-          try {
-              const [player1, player2] = await Promise.all([
-                  OdinCircledbModel.findById(rooms[roomId].player1UserId),
-                  OdinCircledbModel.findById(rooms[roomId].player2UserId),
-              ]);
-              if (!player1 || !player2) throw new Error('User not found');
-              player1.wallet.balance -= player1Bet;
-              player2.wallet.balance -= player2Bet;
-              await Promise.all([player1.save(), player2.save()]);
-              console.log(`Deducted bets: Player1: ${player1Bet}, Player2: ${player2Bet}`);
-          } catch (err) {
-              console.error('Error deducting bets:', err.message);
-          }
-      } else {
-          io.to(roomId).emit('unequalBet', { player1Bet, player2Bet });
-          // Reset bets in the room
-          rooms[roomId].player1Bet = 0;
-          rooms[roomId].player2Bet = 0;
-          rooms[roomId].player1UserId = null;
-          rooms[roomId].player2UserId = null;
-      }
-  }
-});
-
-
-
-
-
- // Handle socket disconnection
- socket.on('disconnect', async () => {
-  console.log('A user disconnected:', socket.id);
-
-  // Iterate through the rooms to find the disconnected player's room
-  for (const roomId in rooms) {
-    const room = rooms[roomId];
-    const playerIndex = room.players.findIndex(player => player.id === socket.id);
-
-    if (playerIndex !== -1) {
-      const disconnectedPlayer = room.players[playerIndex];
-      room.players.splice(playerIndex, 1); // Remove the player from the room
-
-      io.to(roomId).emit('message', `${disconnectedPlayer.name} has left the game`);
-
-      if (room.players.length === 0) {
-        // Delete the room if no players are left
-        delete rooms[roomId];
-        console.log(`Room ${roomId} deleted from memory.`);
-
-        // Attempt to delete the room from BetModelRock in the database
-        try {
-          const result = await BetModelRock.deleteOne({ roomId });
-          if (result.deletedCount > 0) {
-            console.log(`Room ${roomId} successfully deleted from BetModelRock in the database.`);
-          } else {
-            console.warn(`Room ${roomId} not found in BetModelRock in the database.`);
-          }
-        } catch (error) {
-          console.error(`Error deleting room ${roomId} from BetModelRock in the database:`, error.message);
-        }
-      } else {
-        io.to(roomId).emit('opponentLeft', `${disconnectedPlayer.name} has left the game. Waiting for a new player...`);
-        room.choices = {}; // Reset choices if a player leaves mid-game
-      }
-      break;
-    }
-  }
-});
-
-
-const determineRoundWinner = (roomID) => {
-  const room = rooms[roomID];
-  const [player1, player2] = room.players;
-  const choice1 = room.choices[player1.id];
-  const choice2 = room.choices[player2.id];
-
-  let result;
-  let winner = null;
-
-  // Determine the round winner
-  if (choice1 === choice2) {
-      result = "It's a draw!";
-  } else if (
-      (choice1 === 'Rock' && choice2 === 'Scissors') ||
-      (choice1 === 'Scissors' && choice2 === 'Paper') ||
-      (choice1 === 'Paper' && choice2 === 'Rock')
-  ) {
-      result = `${player1.name} wins! ${choice1} beats ${choice2}`;
-      winner = player1;
-  } else {
-      result = `${player2.name} wins! ${choice2} beats ${choice1}`;
-      winner = player2;
-  }
-
-  // Update scores
-  if (winner) {
-      room.scores[winner.id] = (room.scores[winner.id] || 0) + 1;
-  }
-
-  // // Emit round result
-  // io.to(roomID).emit('result', { winner: winner ? winner.name : null, scores: room.scores });
-   // Emit round result with updated scores
-   io.to(roomID).emit('result', { 
-    winner: winner ? winner.name : null, 
-    scores: {
-      player1: room.scores[player1.id] || 0,
-      player2: room.scores[player2.id] || 0,
-    }
-  });
-};
-
-
-const determineOverallWinner = (roomID) => {
-  const room = rooms[roomID];
-  const [player1, player2] = room.players;
-
-  const player1Score = room.scores[player1.id] || 0;
-  const player2Score = room.scores[player2.id] || 0;
-
-  console.log(`Player 1: ${player1.name}, Score: ${player1Score}`);
-  console.log(`Player 2: ${player2.name}, Score: ${player2Score}`);
-
-  let result;
-  if (player1Score > player2Score) {
-      result = `${player1.name} is the winner!`;
-  } else if (player2Score > player1Score) {
-      result = `${player2.name} is the winner!`;
-  } else {
-      result = "It's a tie! The game will reset.";
-      resetGame(roomID);
-  }
-
-  io.to(roomID).emit('gameResult', { message: result });
-  return result;  // Make sure to return the result
-};
-
-
-
-const resetGame = (roomID) => {
-  const room = rooms[roomID];
-  room.choices = {};
-  room.round = 1;
-  console.log(`Game in room ${roomID} has been reset.`);
-};
-
-function maskPlayerName(name) {
-  if (name.length <= 2) {
-    // If the name is very short, mask it entirely
-    return '*'.repeat(name.length);
-  }
-  const firstChar = name[0]; // First character remains visible
-  const lastChar = name[name.length - 1]; // Last character remains visible
-  const maskedMiddle = '*'.repeat(name.length - 2); // Mask the middle characters
-  return `${firstChar}${maskedMiddle}${lastChar}`;
-}
 
 // Function to send notifications to registered devices
 async function sendNotificationsToDevices(title, message) {
@@ -645,7 +255,141 @@ function generateUniqueRoomName() {
   return Math.random().toString(36).substr(2, 9); // Generate a random alphanumeric string
 }
 
-const MAX_ROUNDS = 4;
+
+
+const startTurnTimer = (roomId) => {
+  const room = activeRooms[roomId];
+
+  if (!room) return;
+
+  if (room.turnTimeout) {
+    clearTimeout(room.turnTimeout); // Clear any existing timeout
+  }
+
+  // Set a new timeout
+  room.turnTimeout = setTimeout(() => {
+    console.log(`Player took too long. Auto-switching turn for room ${roomId}`);
+
+    room.currentPlayer = (room.currentPlayer + 1) % room.players.length; // Switch turn for 3 players
+    io.to(roomId).emit('turnChange', room.currentPlayer);
+
+    // Restart the timer for the next player
+    startTurnTimer(roomId);
+  }, 3000);
+};
+
+socket.on('makeMove', async ({ roomId, index, playerName, symbol }) => {
+  const room = activeRooms[roomId];
+
+  if (!room || !Array.isArray(room.players) || room.players.length < 2) {
+    return socket.emit('invalidMove', 'Invalid game state or not enough players');
+  }
+
+  if (!room.board || room.board.length !== 16) {
+    console.error('Invalid game board state:', room.board);
+    return socket.emit('invalidMove', 'Invalid board state');
+  }
+
+  // Ensure currentPlayer is correctly initialized
+  if (typeof room.currentPlayer !== 'number') {
+    room.currentPlayer = 0;
+  }
+
+  const currentPlayer = room.players[room.currentPlayer];
+
+  if (socket.id !== currentPlayer.socketId) {
+    return socket.emit('invalidMove', "It's not your turn");
+  }
+
+  if (room.board[index] !== null) {
+    return socket.emit('invalidMove', 'Cell already occupied');
+  }
+
+  // Make the move
+  room.board[index] = currentPlayer.symbol;
+
+  // Emit move event
+  io.to(roomId).emit('moveMade', { index, symbol: currentPlayer.symbol, playerName: currentPlayer.name });
+
+  // Check for a winner
+  const winnerSymbol = checkWin(room.board);
+  if (winnerSymbol) {
+    clearTimeout(room.turnTimeout); // Stop turn timer if someone wins
+
+    const winnerPlayer = room.players.find(player => player.symbol === winnerSymbol);
+    if (winnerPlayer) {
+      io.to(roomId).emit('gameOver', {
+        winnerSymbol,
+        result: `${winnerPlayer.name} (${winnerSymbol}) wins!`
+      });
+
+      return;
+    }
+  }
+
+  // Check for a draw (all cells filled)
+  if (room.board.every(cell => cell !== null)) {
+    clearTimeout(room.turnTimeout);
+    io.to(roomId).emit('gameDraw', { result: "It's a draw!" });
+
+    return;
+  }
+
+  // Switch turn for the next player
+  room.currentPlayer = (room.currentPlayer + 1) % room.players.length;
+  io.to(roomId).emit('turnChange', room.currentPlayer);
+
+  // Restart the turn timer
+  startTurnTimer(roomId);
+});
+
+
+function checkWin(board) {
+  // Validate board
+  if (!Array.isArray(board) || board.length !== 16) {
+      console.error('Invalid game board:', board);
+      return null;
+  }
+
+  // Define winning patterns for 3-in-a-row on a 4x4 board
+  const winPatterns = [
+      // Horizontal wins
+      [0, 1, 2], [1, 2, 3],
+      [4, 5, 6], [5, 6, 7],
+      [8, 9, 10], [9, 10, 11],
+      [12, 13, 14], [13, 14, 15],
+
+      // Vertical wins
+      [0, 4, 8], [4, 8, 12],
+      [1, 5, 9], [5, 9, 13],
+      [2, 6, 10], [6, 10, 14],
+      [3, 7, 11], [7, 11, 15],
+
+      // Diagonal wins
+      [0, 5, 10], [1, 6, 11], 
+      [4, 9, 14], [5, 10, 15], 
+      [3, 6, 9], [2, 5, 8], 
+      [7, 10, 13], [6, 9, 12]
+  ];
+
+  // Check all winning patterns
+  for (const pattern of winPatterns) {
+      const [a, b, c] = pattern;
+      if (board[a] && board[a] === board[b] && board[b] === board[c]) {
+          return board[a]; // Return the winning symbol (X, O, or A)
+      }
+  }
+
+  // Check for a draw (all cells are filled)
+  if (board.every(cell => cell !== null)) {
+      return 'draw'; // Return "draw" if the board is full and no winner
+  }
+
+  return null; // No winner yet
+}
+
+
+
 });
 
 
@@ -653,7 +397,7 @@ const MAX_ROUNDS = 4;
 };
 
 // Initialize Socket.IO with the server
-const io = SearchSocketIo(server);
+const io = TictacThreeSocketIo(server);
 
 server.listen(5005, () => {
   console.log("🚀 Socket.io server running on port 5555");
