@@ -32,371 +32,503 @@ const io = new Server(server, {
 
 const activeRooms = {};
 
-  io.on('connection', (socket) => {
-    console.log('A user connectedssss:', socket.id);
-  
- socket.on('joinRoom', async ({ playerName, roomId, userId, amount, expoPushToken }) => {
-  console.log(`🎮 Player "${playerName}" (ID: ${userId}) is trying to join Room "${roomId}" with Bet: ${amount}`);
+io.on("connection", (socket) => {
+  console.log(`🔌 User connected: ${socket.id}`);
 
-  // 🔎 Validate required fields
-  if (!playerName || !userId || !roomId || !amount) {
-    console.log("❌ Missing required fields");
-    return socket.emit('invalidJoin', 'Player name, userId, roomId, and amount are required');
+socket.on("joinRoom", async ({ playerName, userId, roomId, amount, expoPushToken }) => {
+  console.log(`🔹 Player ${playerName} (ID: ${userId}) is trying to join room "${roomId}" with bet: ${amount}`);
+
+  // ✅ Validate required fields
+  if (!playerName || !userId || !roomId || amount == null) {
+    console.log("❌ Error: Missing required fields.");
+    return socket.emit("invalidJoin", "Missing required fields");
   }
 
-  // 🔧 Check if the room already exists
   let room = activeRooms[roomId];
 
-  if (!room) {
-    // 🆕 Create a new room
+  if (room) {
+    console.log(`🔍 Found existing room "${roomId}"`);
+
+    // 🧼 If it's a reused room, reset the board if empty
+    if (room.players.length === 0) {
+      console.log(`♻️ Resetting room "${roomId}" to fresh state`);
+      room.board = Array(16).fill(null);
+      room.currentPlayer = 0;
+      room.startingPlayer = 0;
+    }
+
+    // ❌ Enforce amount match
+    if (room.amount !== amount) {
+      console.log(`❌ Amount mismatch for room "${roomId}": expected ${room.amount}, got ${amount}`);
+      return socket.emit("invalidBet", "Amount does not match existing room");
+    }
+
+    // ❌ Room full
+    if (room.players.length >= 2) {
+      console.log(`🚫 Room "${roomId}" is full.`);
+      return socket.emit("roomFull", "Room is already full.");
+    }
+  } else {
+    // 🆕 Create new room with client-provided roomId
+    console.log(`🆕 Creating new room "${roomId}"`);
     room = {
       roomId,
       players: [],
-      board: Array(9).fill(null),
+      board: Array(16).fill(null),
       currentPlayer: 0,
       startingPlayer: 0,
-      amount, // Bet amount locked to this room
+      amount,
     };
     activeRooms[roomId] = room;
-    console.log(`🆕 Room "${roomId}" created with bet: ${amount}`);
-  }
-
-  // 🚫 Amount mismatch?
-  if (room.players.length > 0 && room.amount !== amount) {
-    console.log(`❌ Amount mismatch in Room "${roomId}": expected ${room.amount}, got ${amount}`);
-    return socket.emit('invalidBet', 'Amount must match the existing room');
-  }
-
-  // 🚫 Room full (2 players max)
-  if (room.players.length >= 2) {
-    console.log(`🚫 Room "${roomId}" is full.`);
-    return socket.emit('roomFull', 'This room already has two players');
   }
 
   // 🎭 Assign symbol
-  const symbols = ['X', 'O'];
+  const symbols = ["X", "O"];
   const playerNumber = room.players.length + 1;
   const playerSymbol = symbols[playerNumber - 1];
 
+  console.log(`🎭 Assigning symbol "${playerSymbol}" to Player ${playerNumber}`);
+
   // ➕ Add player
-  const player = {
+  room.players.push({
     name: playerName,
     userId,
     socketId: socket.id,
     amount,
     playerNumber,
     symbol: playerSymbol,
-    expoPushToken,
-  };
-
-  room.players.push(player);
-  socket.join(roomId);
-
-  console.log(`✅ ${playerName} joined Room "${roomId}" as Player ${playerNumber} (${playerSymbol})`);
-
-  // 📢 Notify others
-  socket.to(roomId).emit('playerJoined', `${playerName} joined the room`);
-
-  // 👤 Send info to joining player
-  socket.emit('playerInfo', {
-    playerNumber,
-    symbol: playerSymbol,
-    playerName,
-    roomId,
-    userId,
+    expoPushToken
   });
 
-  // 🔄 Update player list
-  io.to(roomId).emit('playersUpdate', room.players);
+  // 📡 Join socket room
+  socket.join(roomId);
+  console.log(`✅ ${playerName} joined Room "${roomId}" as Player ${playerNumber}`);
 
-  // 🎮 Start game if 2 players joined
+  // 🎉 Confirm room join
+  socket.emit("roomJoined", { roomId: room.roomId, amount, players: room.players });
+
+  // 📣 Notify others
+  socket.to(room.roomId).emit("playerJoined", { playerName, roomId: room.roomId });
+  io.to(room.roomId).emit("playersUpdate", room.players);
+
+  console.log(`🔄 Updated Room "${roomId}" players list:`, room.players);
+
+  // ✅ Start game if 2 players are in
   if (room.players.length === 2) {
-    console.log(`🎉 Game in Room "${roomId}" is ready to start with 2 players`);
+    startGame(room);
+    console.log(`🎮 Game in Room "${roomId}" is READY!`);
 
-    io.to(roomId).emit('gameReady', {
-      players: room.players.map(p => ({ name: p.name, symbol: p.symbol })),
-      roomId,
+    io.to(room.roomId).emit("gameReady", {
+      players: room.players.map((p) => ({ name: p.name, symbol: p.symbol, amount: p.amount })),
+      roomId: room.roomId,
+      amount: room.amount,
     });
 
     room.currentPlayer = room.startingPlayer;
-    io.to(roomId).emit('turnChange', room.currentPlayer);
-
-    // 🔔 Push notifications
-    for (const player of room.players) {
-      try {
-        const recipient = await OdinCircledbModel.findById(player.userId);
-
-        if (recipient?.expoPushToken) {
-          await sendPushNotification(
-            recipient.expoPushToken,
-            'Game Ready!',
-            'Your game is ready to start!',
-            { roomId }
-          );
-        }
-      } catch (err) {
-        console.error(`🔔 Error sending push to ${player.userId}:`, err);
-      }
-    }
+    io.to(room.roomId).emit("turnChange", room.currentPlayer);
   }
 });
 
+
+
+
+socket.on("checkRoom", ({ roomId }, callback) => {
+    const roomExists = io.sockets.adapter.rooms.has(roomId);
+    callback({ exists: roomExists });
+});
+
+socket.on("getRoomData", ({ userId }) => {
+    const room = findRoomByUserId(userId); // Function to find user's room
+    if (room) {
+        io.to(socket.id).emit("roomData", { roomId: room.id, players: room.players });
+    }
+});
+
+async function startGame(room) {
+    console.log(`🎮 Starting ff game in Room ${room.roomId}...`);
+
+    try {
+        // Fetch both players from the database
+        const player1 = await OdinCircledbModel.findById(room.players[0].userId);
+        const player2 = await OdinCircledbModel.findById(room.players[1].userId);
+
+        if (!player1 || !player2) {
+            console.log("❌ Error: One or both players not found in the database.");
+            io.to(room.roomId).emit("invalidGameStart", "Players not found");
+            return;
+        }
+
+        // Check if both players have enough balance
+        if (player1.wallet.balance < room.amount || player2.wallet.balance < room.amount) {
+            console.log("❌ Error: One or both players have insufficient balance.");
+            io.to(room.roomId).emit("invalidGameStart", "One or both players have insufficient balance");
+            return;
+        }
+
+        // Deduct the balance from both players
+        player1.wallet.balance -= room.amount;
+        player2.wallet.balance -= room.amount;
+
+        // Save the updated balances
+        await player1.save();
+        await player2.save();
+
+        // Update total bet in the room
+        room.totalBet = room.amount * 2;
+
+        console.log(`💰 Balance deducted from both players. Total Bet: ${room.totalBet}`);
+
+        // Emit updated balances to players
+        io.to(player1.socketId).emit("balanceUpdated", { newBalance: player1.wallet.balance });
+        io.to(player2.socketId).emit("balanceUpdated", { newBalance: player2.wallet.balance });
+
+        // Emit game start event
+       // io.to(room.roomId).emit("gameStart", { message: "Game is starting!", room });
+    } catch (error) {
+        console.error("❌ Error starting game:", error);
+        io.to(room.roomId).emit("invalidGameStart", "Server error while starting the game");
+    }
+}
+
+
   
-
-
-// Listen for incoming chat messages from clients
-
-
-        // Function to send push notifications
-async function sendPushNotification(expoPushToken, title, body, data = {}) {
-  try {
-    // Validate if the token is a valid Expo push token
-    if (!Expo.isExpoPushToken(expoPushToken)) {
-      console.error(
-        `Push token ${expoPushToken} is not a valid Expo push token`
-      );
-      return;
-    }
-
-    // Create the notification payload
-    const message = {
-      to: expoPushToken,
-      sound: 'default',
-      title,
-      body,
-      data,
-      icon: 'https://as1.ftcdn.net/v2/jpg/03/06/02/06/1000_F_306020649_Kx1nsIMTl9FKwF0jyYruImTY5zV6mnzw.jpg', // Include the icon if required
-    };
-
-    console.log('Sending notification with message:', message);
-
-    // Split messages into chunks for sending
-    const chunks = expo.chunkPushNotifications([message]);
-    const tickets = [];
-
-    // Send the notification in chunks
-    for (let chunk of chunks) {
-      try {
-        let ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-        tickets.push(...ticketChunk);
-      } catch (error) {
-        console.error('Error sending push notification chunk:', error);
-      }
-    }
-
-    console.log('Push notification tickets:', tickets);
-  } catch (error) {
-    console.error('Error sending push notification:', error);
-  }
-}
-
- 
-
-
-// Function to send notifications to registered devices
-async function sendNotificationsToDevices(title, message) {
-  try {
-    // Fetch all devices from the database
-    const devices = await Device.find({});
-    console.log('Fetched devices:', devices);
-
-    // Extract the expoPushToken from each device
-    const tokens = devices.map((device) => device.expoPushToken);
-    console.log('Extracted tokens:', tokens);
-
-    if (tokens.length === 0) {
-      console.warn('No devices registered for notifications');
-      return;
-    }
-
-    // Filter out invalid tokens and prepare messages
-    const messages = tokens
-      .filter((token) => Expo.isExpoPushToken(token)) // Ensure token is valid
-      .map((token) => ({
-        to: token,
-        sound: 'default',
-        title,
-        body: message,
-      }));
-
-    console.log('Prepared messages:', messages);
-
-    if (messages.length === 0) {
-      console.warn('No valid Expo push tokens found');
-      return;
-    }
-
-    // Chunk messages into batches to send with Expo
-    const chunks = expo.chunkPushNotifications(messages);
-    const tickets = [];
-
-    // Send notifications in chunks
-    for (const chunk of chunks) {
-      try {
-        const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-        tickets.push(...ticketChunk);
-        console.log('Sent notification chunk:', ticketChunk);
-      } catch (error) {
-        console.error('Error sending notification chunk:', error);
-      }
-    }
-
-    // Log tickets for debugging
-    console.log('Notification tickets:', tickets);
-  } catch (error) {
-    console.error('Error sending notifications:', error.message);
-    console.error('Error stack:', error.stack);
-  }
-}
-
-function generateUniqueRoomName() {
-  return Math.random().toString(36).substr(2, 9); // Generate a random alphanumeric string
-}
-
-
-
 const startTurnTimer = (roomId) => {
   const room = activeRooms[roomId];
-
   if (!room) return;
 
   if (room.turnTimeout) {
-    clearTimeout(room.turnTimeout); // Clear any existing timeout
+    clearTimeout(room.turnTimeout);
   }
 
-  // Set a new timeout
   room.turnTimeout = setTimeout(() => {
-    console.log(`Player took too long. Auto-switching turn for room ${roomId}`);
+    console.log(`⏰ Player took too long. Switching turn for room ${roomId}`);
 
-    room.currentPlayer = (room.currentPlayer + 1) % room.players.length; // Switch turn for 3 players
-    io.to(roomId).emit('turnChange', room.currentPlayer);
+    // Switch turn
+    room.currentPlayer = (room.currentPlayer + 1) % 2;
+    const currentPlayer = room.players[room.currentPlayer];
 
-    // Restart the timer for the next player
-    startTurnTimer(roomId);
+    if (!currentPlayer) {
+      console.error('⚠️ No current player found');
+      return;
+    }
+
+    // Emit turn change
+    io.to(roomId).emit('turnChange', currentPlayer.userId);
+    console.log('🔄 Emitting turnChange:', currentPlayer.userId);
+
+    // Delay restart of the timer slightly
+    setTimeout(() => startTurnTimer(roomId), 100);
   }, 3000);
 };
 
-socket.on('makeMove', async ({ roomId, index, playerName, symbol }) => {
+
+   
+ socket.on('makeMove', async ({ roomId, index, playerName, symbol }) => {
   const room = activeRooms[roomId];
 
-  if (!room || !Array.isArray(room.players) || room.players.length < 2) {
-    return socket.emit('invalidMove', 'Invalid game state or not enough players');
+  // Check if room exists and has a players array
+  if (!room || !Array.isArray(room.players)) {
+    console.error(`Invalid room or players array for roomId: ${roomId}`);
+    return socket.emit('invalidMove', 'Invalid game state');
   }
 
-  if (!room.board || room.board.length !== 16) {
-    console.error('Invalid game board state:', room.board);
-    return socket.emit('invalidMove', 'Invalid board state');
-  }
-
-  // Ensure currentPlayer is correctly initialized
+  // Initialize room.currentPlayer if necessary
   if (typeof room.currentPlayer !== 'number') {
-    room.currentPlayer = 0;
+    console.error(`Invalid currentPlayer for roomId: ${roomId}`);
+    room.currentPlayer = 0; // Default to player 0
   }
 
-  const currentPlayer = room.players[room.currentPlayer];
-
-  if (socket.id !== currentPlayer.socketId) {
-    return socket.emit('invalidMove', "It's not your turn");
+  if (!room) {
+    return socket.emit('invalidMove', 'Room not found');
   }
 
-  if (room.board[index] !== null) {
-    return socket.emit('invalidMove', 'Cell already occupied');
+  const currentPlayerIndex = room.currentPlayer % 2;
+  const currentPlayer = room.players[currentPlayerIndex];
+
+     // Check if currentPlayer exists and has userId
+  if (currentPlayer && currentPlayer.hasOwnProperty('userId')) {
+    console.log('Current player userId:', currentPlayer.userId);
+  } else {
+    console.error('Error: currentPlayer is missing userId');
+    return socket.emit('invalidMove', 'Invalid player state');
   }
 
-  // Make the move
-  room.board[index] = currentPlayer.symbol;
+  // Check if there's only one player in the room
+  if (room.players.length < 2) {
+    return socket.emit('invalidMove', 'Waiting for another player to join');
+  }
 
-  // Emit move event
-  io.to(roomId).emit('moveMade', { index, symbol: currentPlayer.symbol, playerName: currentPlayer.name });
+  if (socket.id === currentPlayer.socketId) {
+    if (room.board[index] === null) {
+      room.board[index] = currentPlayer.symbol;
+      
+      // Move is made, clear the existing turn timeout
+      if (room.turnTimeout) {
+        clearTimeout(room.turnTimeout);
+      }
 
-  // Check for a winner
-  const winnerSymbol = checkWin(room.board);
-  if (winnerSymbol) {
-    clearTimeout(room.turnTimeout); // Stop turn timer if someone wins
+      // Emit move made and turn change
+      io.to(roomId).emit('moveMade', { index, symbol: currentPlayer.symbol, playerName: currentPlayer.name, board: room.board });
 
-    const winnerPlayer = room.players.find(player => player.symbol === winnerSymbol);
-    if (winnerPlayer) {
-      io.to(roomId).emit('gameOver', {
-        winnerSymbol,
-        result: `${winnerPlayer.name} (${winnerSymbol}) wins!`
-      });
+   // Change turn
+// Change turn
+    room.currentPlayer = (room.currentPlayer + 1) % 2;
 
+    // ⚠️ Fetch the *new* current player based on updated index
+    const nextPlayer = room.players[room.currentPlayer];
+
+    if (!nextPlayer || !nextPlayer.userId) {
+      console.error('Error: nextPlayer is missing userId');
       return;
     }
-  }
 
-  // Check for a draw (all cells filled)
-  if (room.board.every(cell => cell !== null)) {
-    clearTimeout(room.turnTimeout);
-    io.to(roomId).emit('gameDraw', { result: "It's a draw!" });
+    // Notify frontend
+    io.to(roomId).emit('turnChange', nextPlayer.userId);
+    console.log('🔄 Emitting turnChange:', nextPlayer.userId);
 
+    startTurnTimer(roomId); // Restart timer
+      
+      const winnerSymbol = checkWin(room.board);
+
+      if (winnerSymbol) {
+        clearTimeout(room.turnTimeout); // **Stop turn timer if someone wins**
+        
+        const winnerPlayer = room.players.find(player => player.symbol === winnerSymbol);
+        const loserPlayer = room.players.find(player => player.symbol !== winnerSymbol);
+      
+        if (winnerPlayer && loserPlayer) {
+          const winnerUserId = winnerPlayer.userId;
+          const loserUserId = loserPlayer.userId;
+          const gameResult = `${winnerPlayer.name} (${winnerSymbol}) wins!`;
+
+          // Access the totalBet from the room object
+         // Ensure all players have a valid amount
+
+// Add the totalBet to the winner's balance
+//winnerUser.wallet.cashoutbalance += totalBet;
+//await winnerUser.save();
+       const totalBet = room.players.reduce((sum, player) => {
+    const amount = Number(player.amount); // Convert to number
+    return isNaN(amount) ? sum : sum + amount;
+  }, 0);
+
+console.log('Winner balance updated successfully');
+
+          // Emit 'gameOver' event with winner and loser info
+          // iooo.to(roomId).emit('gameOver', { 
+          //   winnerSymbol, 
+          //   result: gameResult, 
+          //   totalBet, 
+          //   winnerUserId, 
+          //   winnerPlayer, 
+          //   loserUserId, 
+          //   loserPlayer 
+          // });
+             // Emit different events for winner and loser
+  io.to(winnerPlayer.socketId).emit('winnerScreen', { 
+    result: gameResult, 
+    totalBet, 
+    winnerUserId, 
+    winnerPlayer 
+  });
+
+  io.to(loserPlayer.socketId).emit('loserScreen', { 
+    result: gameResult, 
+    totalBet, 
+    loserUserId, 
+    loserPlayer 
+  });
+
+
+          try {
+            // Update the winner's balance in the database
+            const winnerUser = await OdinCircledbModel.findById(winnerUserId);
+
+  if (!winnerUser) {
+    console.error(`Winner user not found: ${winnerUserId}`);
     return;
   }
 
-  // Switch turn for the next player
-  room.currentPlayer = (room.currentPlayer + 1) % room.players.length;
-  io.to(roomId).emit('turnChange', room.currentPlayer);
+  // Ensure all players have a valid amount before calculating totalBet
+  const totalBet = room.players.reduce((sum, player) => {
+    const amount = Number(player.amount); // Convert to number
+    return isNaN(amount) ? sum : sum + amount;
+  }, 0);
 
-  // Restart the turn timer
-  startTurnTimer(roomId);
+  console.log(`Calculated totalBet: ${totalBet}`);
+
+  // Validate totalBet before using it
+  if (isNaN(totalBet) || totalBet <= 0) {
+    console.error(`Invalid totalBet value: ${totalBet}`);
+    return;
+  }
+
+  // Ensure winner's cashoutbalance is valid
+  if (typeof winnerUser.wallet.cashoutbalance !== 'number') {
+    console.error(`Invalid cashoutbalance: ${winnerUser.wallet.cashoutbalance}`);
+    winnerUser.wallet.cashoutbalance = 0; // Default to 0 if undefined
+  }
+
+  
+            if (winnerUser) {
+              winnerUser.wallet.cashoutbalance += totalBet;
+              await winnerUser.save();
+
+              // Save winner record
+              const newWinner = new WinnerModel({
+                roomId,
+                winnerName: winnerUserId,
+                totalBet: totalBet,
+              });
+              await newWinner.save();
+              console.log('Winner saved to database:', newWinner);
+
+              // Save loser record
+              const newLoser = new LoserModel({
+                roomId,
+                loserName: loserUserId,
+                totalBet: totalBet,
+              });
+              await newLoser.save();
+              console.log('Loser saved to database:', newLoser);
+            } else {
+              console.error('Winner user not found');
+            }
+          } catch (error) {
+            console.error('Error updating winner balance:', error);
+          }
+        }
+      } else if (room.board.every((cell) => cell !== null)) {
+        clearTimeout(room.turnTimeout); // **Stop timer on draw**
+
+        // It's a draw
+        io.to(roomId).emit('gameDraw', { 
+          winnerSymbol: null, 
+          result: "It's a draw!", 
+          winnerUserId: null 
+        });
+
+        // Reset the game state for a new game
+        room.board = Array(16).fill(null);
+        room.startingPlayer = (room.startingPlayer + 1) % 2;
+        room.currentPlayer = room.startingPlayer;
+
+        io.to(roomId).emit('newGame', 
+                             { message: "The game has been reset due to a draw. New game starting!",
+                              startingPlayer: room.startingPlayer 
+                             });
+      }
+    } else {
+      return socket.emit('invalidMove', room.board[index] !== null ? 'Cell already occupied' : "It's not your turn");
+    }
+  }
+});
+  
+socket.on("disconnect", async () => {
+    console.log(`❌ User disconnected: ${socket.id}`);
+
+    for (const roomId in activeRooms) {
+        const room = activeRooms[roomId];
+
+        if (room) {
+            const playerIndex = room.players.findIndex((player) => player.socketId === socket.id);
+
+            if (playerIndex !== -1) {
+                const [disconnectedPlayer] = room.players.splice(playerIndex, 1);
+
+                io.to(roomId).emit("playerLeft", { 
+                    message: `${disconnectedPlayer.playerName} left the game`, 
+                    roomId 
+                });
+
+                // **Check if the game already has a winner before awarding the remaining player**
+                const winnerSymbol = checkWin(room.board);
+                if (winnerSymbol) {
+                    console.log("🏆 Game already has a winner, no need to award the remaining player.");
+                    return;
+                }
+
+                // If one player remains and there's NO existing winner, award them as default winner
+                if (room.players.length === 1) {
+                    const winnerPlayer = room.players[0];
+                    console.log(`🏆 ${winnerPlayer.playerName} is the default winner because the opponent disconnected.`);
+
+                    try {
+                        // Fetch the winner from the database
+                        const winnerUser = await OdinCircledbModel.findById(winnerPlayer.userId);
+                        if (winnerUser) {
+                            // Award totalBet to the remaining player
+                            winnerUser.wallet.cashoutbalance += room.totalBet;
+                            await winnerUser.save();
+
+                            // Emit winner event
+                            io.to(winnerPlayer.socketId).emit("winnerScreen", {
+                                result: `You win! Opponent disconnected.`,
+                                totalBet: room.totalBet,
+                                winnerUserId: winnerPlayer.userId,
+                                winnerPlayer
+                            });
+
+                            console.log(`💰 ${winnerPlayer.playerName} received ${room.totalBet} coins as the default winner.`);
+                        } else {
+                            console.error("❌ Winner user not found in the database.");
+                        }
+                    } catch (error) {
+                        console.error("❌ Error updating winner balance on opponent disconnect:", error);
+                    }
+
+                    // Remove the room after awarding the winner
+                    delete activeRooms[roomId];
+                }
+
+                // If no players remain, delete the room
+                if (room.players.length === 0) {
+                    delete activeRooms[roomId];
+                }
+            }
+        }
+    }
+})
 });
 
 
-function checkWin(board) {
-  // Validate board
-  if (!Array.isArray(board) || board.length !== 16) {
-      console.error('Invalid game board:', board);
-      return null;
-  }
 
-  // Define winning patterns for 3-in-a-row on a 4x4 board
-  const winPatterns = [
-      // Horizontal wins
-      [0, 1, 2], [1, 2, 3],
-      [4, 5, 6], [5, 6, 7],
-      [8, 9, 10], [9, 10, 11],
-      [12, 13, 14], [13, 14, 15],
+function generateRoomId() {
+  return Math.random().toString(36).substr(2, 9); // Generate a random alphanumeric string
+}
 
-      // Vertical wins
-      [0, 4, 8], [4, 8, 12],
-      [1, 5, 9], [5, 9, 13],
-      [2, 6, 10], [6, 10, 14],
-      [3, 7, 11], [7, 11, 15],
+const checkWin = (board) => {
+  const winningLines = [
+    // Rows (check 3 consecutive cells)
+    [0, 1, 2], [1, 2, 3], 
+    [4, 5, 6], [5, 6, 7], 
+    [8, 9, 10], [9, 10, 11], 
+    [12, 13, 14], [13, 14, 15], 
 
-      // Diagonal wins
-      [0, 5, 10], [1, 6, 11], 
-      [4, 9, 14], [5, 10, 15], 
-      [3, 6, 9], [2, 5, 8], 
-      [7, 10, 13], [6, 9, 12]
+    // Columns (check 3 consecutive cells)
+    [0, 4, 8], [4, 8, 12], 
+    [1, 5, 9], [5, 9, 13], 
+    [2, 6, 10], [6, 10, 14], 
+    [3, 7, 11], [7, 11, 15],
+
+    // Main Diagonal (check 3 consecutive cells)
+    [0, 5, 10], [5, 10, 15], 
+    [1, 6, 11], [4, 9, 14], 
+
+    // Anti-Diagonal (check 3 consecutive cells)
+    [2, 5, 8], [3, 6, 9], 
+    [6, 9, 12], [7, 10, 13]
   ];
 
-  // Check all winning patterns
-  for (const pattern of winPatterns) {
-      const [a, b, c] = pattern;
-      if (board[a] && board[a] === board[b] && board[b] === board[c]) {
-          return board[a]; // Return the winning symbol (X, O, or A)
-      }
-  }
-
-  // Check for a draw (all cells are filled)
-  if (board.every(cell => cell !== null)) {
-      return 'draw'; // Return "draw" if the board is full and no winner
+  for (let line of winningLines) {
+    const [a, b, c] = line; // Check 3 instead of 4
+    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+      return board[a]; // Return the winning symbol ('X' or 'O')
+    }
   }
 
   return null; // No winner yet
-}
-
-
-
-});
-
-
-  return io;
 };
 
-// Initialize Socket.IO with the server
-const io = TictacThreeSocketIo(server);
 
-server.listen(5005, () => {
-  console.log("🚀 Socket.io server running on port 5555");
-});
+server.listen(5005, () => console.log("🚀 Server running on port 5005"));
