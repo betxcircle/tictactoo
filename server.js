@@ -2,147 +2,145 @@ const express = require("express");
 const http = require("http");
 const cors = require("cors");
 const { Server } = require("socket.io");
-const socketIO = require('socket.io');
-const OdinCircledbModel = require('./models/odincircledb');
-const WinnerModel = require('./models/WinnerModel');
-// const BetModelRock = require('./models/BetModelRock');
-// const BetCashModel = require('./models/BetCashModel');
-const Device = require('./models/Device');
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-const { Expo } = require('expo-server-sdk'); // Import expo-server-sdk
-
-const expo = new Expo(); // Initialize Expo SDK
+const OdinCircledbModel = require("./models/odincircledb");
+const BetModel = require("./models/BetModel");
+const WinnerModel = require("./models/WinnerModel");
+const LoserModel = require("./models/LoserModel");
 
 require("dotenv").config();
 
 const app = express();
-app.use(cors()); // Allow connections from your React Native app
+app.use(cors());
 
 const server = http.createServer(app);
-
-const mongoUsername = process.env.MONGO_USERNAME;
-const mongoPassword = process.env.MONGO_PASSWORD;
-const mongoDatabase = process.env.MONGO_DATABASE;
-const mongoCluster = process.env.MONGO_CLUSTER;
-
-const uri = `mongodb+srv://${mongoUsername}:${mongoPassword}@${mongoCluster}.kbgr5.mongodb.net/${mongoDatabase}?retryWrites=true&w=majority`;
+// const { v4: uuidv4 } = require('uuid'); // Import UUID for unique room IDs
 
 
 // MongoDB Connection
-mongoose.connect(uri, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-}).then(() => console.log("MongoDB connected"))
-    .catch(err => console.error("MongoDB connection error:", err));
+const uri = `mongodb+srv://${process.env.MONGO_USERNAME}:${process.env.MONGO_PASSWORD}@${process.env.MONGO_CLUSTER}.kbgr5.mongodb.net/${process.env.MONGO_DATABASE}?retryWrites=true&w=majority`;
 
-    
-const TictacThreeSocketIo = (server) => {
-  const io = new Server(server, {
-    cors: {
-      origin: "*", // Replace with your frontend's URL if needed
-      methods: ["GET", "POST"],
-    },
-  });
+mongoose
+  .connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((err) => console.error("❌ MongoDB connection error:", err));
 
-  const rooms = {};
+const io = new Server(server, {
+  cors: { origin: "*", methods: ["GET", "POST"] },
+});
+
+const activeRooms = {};
 
   io.on('connection', (socket) => {
     console.log('A user connectedssss:', socket.id);
   
-    socket.on('joinRoom', async ({ playerName, roomId, userId, totalBet, expoPushToken }) => {
-      // Validate input
-      if (!playerName || !userId || !roomId || !totalBet) {
-        return socket.emit('invalidJoin', 'Player name, userId, roomId, and bet amount are required');
-      }
-  
-      // Check if the room exists
-      let room = activeRooms[roomId];
-  
-      if (!room) {
-        // Create a new room with the bet amount if it doesn't exist
-        room = {
-          roomId,
-          players: [],
-          board: Array(9).fill(null),
-          currentPlayer: 0,
-          startingPlayer: 0, // Track who starts
-          totalBet, // Set bet for this room
-        };
-        activeRooms[roomId] = room;
-      }
-  
-      // Enforce bet consistency - ensure all players in the room have the same bet amount
-      if (room.players.length > 0 && room.totalBet !== totalBet) {
-        return socket.emit('invalidBet', 'Bet amount must match the room');
-      }
-  
-      // Prevent more than 3 players from joining the same room
-      if (room.players.length >= 3) {
-        return socket.emit('roomFull', 'This room already has three players');
-      }
-  
-      // Determine player number and symbol (X, O, or A for 3 players)
-      const symbols = ['X', 'O', 'A']; 
-      const playerNumber = room.players.length + 1;
-      const playerSymbol = symbols[playerNumber - 1];
-  
-      // Add the player to the room
-      room.players.push({
-        name: playerName,
-        userId,
-        socketId: socket.id,
-        totalBet,
-        playerNumber,
-        symbol: playerSymbol,
-        expoPushToken,
-      });
-  
-      // Join the socket.io room
-      socket.join(roomId);
-  
-      // Notify other players in the room about the new player
-      socket.to(roomId).emit('playerJoined', `${playerName} joined the room`);
-  
-      // Send individual player information to the player who joined
-      socket.emit('playerInfo', {
-        playerNumber: playerNumber,
-        symbol: playerSymbol,
-        playerName: playerName,
-        roomId: room.roomId,
-        userId: userId
-      });
-  
-      // Emit the updated player list to everyone in the room
-      io.to(roomId).emit('playersUpdate', room.players);
-  
-      // Check if the room has at least 2 players to start the game
-      if (room.players.length === 2 || room.players.length === 3) {
-        io.to(roomId).emit('gameReady', {
-          players: room.players.map(p => ({ name: p.name, symbol: p.symbol })),
-          roomId,
-        });
-  
-        room.currentPlayer = room.startingPlayer;
-  
-        // Notify players about whose turn it is
-        io.to(roomId).emit('turnChange', room.currentPlayer);
-        
-        // Send push notification to all players in the room
-        for (const player of room.players) {
-          const recipient = await OdinCircledbModel.findById(player.userId); 
-  
-          if (recipient && recipient.expoPushToken) {
-            await sendPushNotification(
-              recipient.expoPushToken,
-              'Game Ready!',
-              'The game is ready to start!',
-              { roomId }
-            );
-          }
-        }
-      }
+ socket.on('joinRoom', async ({ playerName, roomId, userId, amount, expoPushToken }) => {
+  console.log(`🎮 Player "${playerName}" (ID: ${userId}) is trying to join Room "${roomId}" with Bet: ${amount}`);
+
+  // 🔎 Validate required fields
+  if (!playerName || !userId || !roomId || !amount) {
+    console.log("❌ Missing required fields");
+    return socket.emit('invalidJoin', 'Player name, userId, roomId, and amount are required');
+  }
+
+  // 🔧 Check if the room already exists
+  let room = activeRooms[roomId];
+
+  if (!room) {
+    // 🆕 Create a new room
+    room = {
+      roomId,
+      players: [],
+      board: Array(9).fill(null),
+      currentPlayer: 0,
+      startingPlayer: 0,
+      amount, // Bet amount locked to this room
+    };
+    activeRooms[roomId] = room;
+    console.log(`🆕 Room "${roomId}" created with bet: ${amount}`);
+  }
+
+  // 🚫 Amount mismatch?
+  if (room.players.length > 0 && room.amount !== amount) {
+    console.log(`❌ Amount mismatch in Room "${roomId}": expected ${room.amount}, got ${amount}`);
+    return socket.emit('invalidBet', 'Amount must match the existing room');
+  }
+
+  // 🚫 Room full (2 players max)
+  if (room.players.length >= 2) {
+    console.log(`🚫 Room "${roomId}" is full.`);
+    return socket.emit('roomFull', 'This room already has two players');
+  }
+
+  // 🎭 Assign symbol
+  const symbols = ['X', 'O'];
+  const playerNumber = room.players.length + 1;
+  const playerSymbol = symbols[playerNumber - 1];
+
+  // ➕ Add player
+  const player = {
+    name: playerName,
+    userId,
+    socketId: socket.id,
+    amount,
+    playerNumber,
+    symbol: playerSymbol,
+    expoPushToken,
+  };
+
+  room.players.push(player);
+  socket.join(roomId);
+
+  console.log(`✅ ${playerName} joined Room "${roomId}" as Player ${playerNumber} (${playerSymbol})`);
+
+  // 📢 Notify others
+  socket.to(roomId).emit('playerJoined', `${playerName} joined the room`);
+
+  // 👤 Send info to joining player
+  socket.emit('playerInfo', {
+    playerNumber,
+    symbol: playerSymbol,
+    playerName,
+    roomId,
+    userId,
   });
+
+  // 🔄 Update player list
+  io.to(roomId).emit('playersUpdate', room.players);
+
+  // 🎮 Start game if 2 players joined
+  if (room.players.length === 2) {
+    console.log(`🎉 Game in Room "${roomId}" is ready to start with 2 players`);
+
+    io.to(roomId).emit('gameReady', {
+      players: room.players.map(p => ({ name: p.name, symbol: p.symbol })),
+      roomId,
+    });
+
+    room.currentPlayer = room.startingPlayer;
+    io.to(roomId).emit('turnChange', room.currentPlayer);
+
+    // 🔔 Push notifications
+    for (const player of room.players) {
+      try {
+        const recipient = await OdinCircledbModel.findById(player.userId);
+
+        if (recipient?.expoPushToken) {
+          await sendPushNotification(
+            recipient.expoPushToken,
+            'Game Ready!',
+            'Your game is ready to start!',
+            { roomId }
+          );
+        }
+      } catch (err) {
+        console.error(`🔔 Error sending push to ${player.userId}:`, err);
+      }
+    }
+  }
+});
+
   
 
 
