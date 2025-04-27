@@ -116,6 +116,8 @@ socket.on("joinRoom", async ({ playerName, userId, roomId, amount, expoPushToken
   // ✅ Start game if 2 players are in
   if (room.players.length === 2) {
     startGame(room);
+          room.currentPlayer = room.players[0].userId; // Set current turn to first player
+      console.log('Updated current turn after second player joins:', room.currentPlayer);
     console.log(`🎮 Game in Room "${roomId}" is READY!`);
 
     io.to(room.roomId).emit("gameReady", {
@@ -124,7 +126,7 @@ socket.on("joinRoom", async ({ playerName, userId, roomId, amount, expoPushToken
       amount: room.amount,
     });
 
-    room.currentPlayer = room.startingPlayer;
+   //room.currentPlayer = room.startingPlayer;
     io.to(room.roomId).emit("turnChange", room.currentPlayer);
   }
 });
