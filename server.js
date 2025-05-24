@@ -220,7 +220,7 @@ const startTurnTimer = (roomId) => {
 
     // Delay restart of the timer slightly
     setTimeout(() => startTurnTimer(roomId), 100);
-  }, 3000);
+  }, 5000);
 };
 
 
@@ -519,7 +519,7 @@ const checkWin = (board) => {
   [4, 8, 12], [5, 9, 13], [6, 10, 14], [7, 11, 15],
 
   // Diagonal ↘
-  [0, 5, 10], [1, 6, 11], [2, 7, 12],
+  [0, 5, 10], [1, 6, 11],
   [4, 9, 14], [5, 10, 15],
 
   // Diagonal ↙
